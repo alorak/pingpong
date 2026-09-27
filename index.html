@@ -1,0 +1,2282 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Hayvan Ping Pong!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #f0f4ff 0%, #e8f4ec 50%, #fff5e6 100%);
+            min-height: 100vh;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Dekoratif şekiller arka plan */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            border-radius: 50%;
+            animation: floatBubble 4s infinite ease-in-out;
+            opacity: 0.4;
+        }
+
+        @keyframes floatBubble {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-15px) scale(1.1); }
+        }
+
+        /* Ana konteyner */
+        .game-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            height: 100vh;
+            max-width: 1400px;
+            padding: 10px 20px;
+            box-sizing: border-box;
+        }
+
+        /* Skor tablosu */
+        .scoreboard {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            padding: 10px 40px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1), 0 2px 0 rgba(255,255,255,0.8);
+            border: 3px solid #e0e8f0;
+            flex-shrink: 0;
+        }
+
+        .scoreboard-divider {
+            width: 3px;
+            height: 50px;
+            background: linear-gradient(180deg, #ff6b6b, #4ecdc4);
+            border-radius: 2px;
+        }
+
+        /* Controller butonları */
+        .controller-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid #ccc;
+            background: linear-gradient(180deg, #e0e0e0, #bdbdbd);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+        }
+
+        .controller-btn:hover {
+            transform: scale(1.1);
+            border-color: #999;
+        }
+
+        .controller-btn.connected {
+            background: linear-gradient(180deg, #4ecdc4, #26a69a);
+            border-color: #00897b;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+            animation: pulse-controller 2s infinite;
+        }
+
+        @keyframes pulse-controller {
+            0%, 100% { box-shadow: 0 0 15px rgba(78, 205, 196, 0.5); }
+            50% { box-shadow: 0 0 25px rgba(78, 205, 196, 0.8); }
+        }
+
+        /* Controller modal stiller */
+        .controller-info {
+            color: #666;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .controller-connected-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: linear-gradient(180deg, #e8f5e9, #c8e6c9);
+            border-radius: 15px;
+            margin-bottom: 15px;
+        }
+
+        .controller-status-icon {
+            font-size: 24px;
+        }
+
+        #connectedDeviceName {
+            font-weight: 700;
+            color: #2e7d32;
+        }
+
+        .disconnect-btn {
+            background: linear-gradient(180deg, #ff6b6b, #ee5a5a) !important;
+            box-shadow: 0 4px 0 #cc4444 !important;
+        }
+
+        .disconnect-btn:hover {
+            box-shadow: 0 6px 0 #cc4444 !important;
+        }
+
+        /* Oyuncu Profil Modal */
+        .player-profile-modal {
+            max-width: 550px;
+            width: 95%;
+        }
+
+        .profile-section {
+            margin-bottom: 20px;
+        }
+
+        .profile-label {
+            display: block;
+            color: #555;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .profile-input {
+            width: 100%;
+            padding: 12px 18px;
+            font-size: 18px;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 700;
+            border: 3px solid #e0e8f0;
+            border-radius: 15px;
+            outline: none;
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .profile-input:focus {
+            border-color: #4ecdc4;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.3);
+        }
+
+        .profile-animal-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .profile-animal-btn {
+            width: 100%;
+            aspect-ratio: 1;
+            font-size: 28px;
+            background: white;
+            border: 2px solid #e0e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .profile-animal-btn:hover {
+            transform: scale(1.1);
+            border-color: #4ecdc4;
+        }
+
+        .profile-animal-btn.selected {
+            border-color: #ff9800;
+            background: #fff3e0;
+            box-shadow: 0 0 10px rgba(255,152,0,0.4);
+        }
+
+        .player-score {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .player-points {
+            font-size: 36px;
+            font-weight: 900;
+            color: #333;
+            background: linear-gradient(180deg, #f8f9fa, #e9ecef);
+            padding: 8px 18px;
+            border-radius: 15px;
+            border: 3px solid #dee2e6;
+            min-width: 55px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .player-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            animation: bounce 2s infinite ease-in-out;
+        }
+
+        .player-avatar.left {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+            border: 3px solid #ff8787;
+            animation-delay: 0s;
+        }
+
+        .player-avatar.right {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+            border: 3px solid #6ee7df;
+            animation-delay: 0.5s;
+        }
+
+        .player-avatar.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .player-avatar.clickable:hover {
+            transform: scale(1.15);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-name {
+            color: #333;
+            font-size: 16px;
+            font-weight: 700;
+            text-shadow: none;
+        }
+
+        .stars-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-top: 4px;
+        }
+
+        .stars-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        .stars-row.hidden {
+            display: none;
+        }
+
+        .star-icon {
+            font-size: 16px;
+            filter: grayscale(100%) brightness(0.5);
+            transition: all 0.3s ease;
+        }
+
+        .star-icon.active {
+            filter: none;
+            animation: starPop 0.5s ease;
+        }
+
+        @keyframes starPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+
+        /* Oyun alanı */
+        .game-area {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            max-height: calc(100vh - 200px);
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(180deg, #a8e6cf 0%, #88d8b0 50%, #a8e6cf 100%);
+            border-radius: 20px;
+            border: 5px solid #5cb85c;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.15), inset 0 0 50px rgba(255,255,255,0.3);
+            overflow: hidden;
+        }
+
+        /* Orta çizgi */
+        .center-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255,255,255,0.9) 0px,
+                rgba(255,255,255,0.9) 20px,
+                transparent 20px,
+                transparent 40px
+            );
+            transform: translateX(-50%);
+        }
+
+        .center-circle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 100px;
+            height: 100px;
+            border: 4px solid rgba(255,255,255,0.7);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Raketler */
+        .paddle {
+            position: absolute;
+            width: 2.5%;
+            height: 20%;
+            border-radius: 10px;
+            transition: box-shadow 0.1s ease;
+        }
+
+        .paddle-left {
+            left: 2.5%;
+            background: linear-gradient(90deg, #ff6b6b, #ff8787, #ff6b6b);
+            box-shadow: 0 4px 15px rgba(255,107,107,0.5);
+            border: 3px solid #ff5252;
+        }
+
+        .paddle-right {
+            right: 2.5%;
+            background: linear-gradient(90deg, #4ecdc4, #6ee7df, #4ecdc4);
+            box-shadow: 0 4px 15px rgba(78,205,196,0.5);
+            border: 3px solid #26a69a;
+        }
+
+        .paddle.hit {
+            animation: paddleHit 0.2s ease;
+        }
+
+        @keyframes paddleHit {
+            0%, 100% { transform: scaleX(1); }
+            50% { transform: scaleX(1.3); }
+        }
+
+        /* Top */
+        .ball {
+            position: absolute;
+            width: 3%;
+            aspect-ratio: 1;
+            background: radial-gradient(circle at 30% 30%, #fff, #ffeb3b, #ff9800);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(255,152,0,0.5);
+            border: 2px solid #f57c00;
+            transform: translate(-50%, -50%);
+        }
+
+        .ball-trail {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(255,204,0,0.3);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* Gol efekti */
+        .goal-effect {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .goal-effect.left {
+            background: radial-gradient(circle at 0% 50%, rgba(255,107,107,0.5), transparent 50%);
+        }
+
+        .goal-effect.right {
+            background: radial-gradient(circle at 100% 50%, rgba(78,205,196,0.5), transparent 50%);
+        }
+
+        .goal-effect.active {
+            opacity: 1;
+            animation: goalFlash 0.5s ease;
+        }
+
+        @keyframes goalFlash {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        /* Kontrol bilgisi */
+        .controls-info {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 20px;
+        }
+
+        .control-hint {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 35px;
+            height: 35px;
+            padding: 0 10px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            color: #333;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 3px 0 #ccc;
+        }
+
+        /* Başlangıç ekranı */
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.97);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 20px;
+        }
+
+        .start-screen.hidden {
+            display: none;
+        }
+
+        .game-title {
+            font-size: 48px;
+            color: #ff6b6b;
+            text-shadow: 3px 3px 0 #4ecdc4;
+            margin-bottom: 30px;
+            animation: titlePulse 2s infinite ease-in-out;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .character-select {
+            display: flex;
+            gap: 60px;
+            margin-bottom: 30px;
+        }
+
+        .character-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .panel-title.red { color: #ff6b6b; }
+        .panel-title.green { color: #4ecdc4; }
+
+        .selected-character {
+            width: 100px;
+            height: 100px;
+            font-size: 60px;
+            background: white;
+            border: 4px solid #e0e8f0;
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            animation: characterFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes characterFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes selected {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .start-btn {
+            padding: 15px 50px;
+            font-size: 24px;
+            font-weight: 900;
+            font-family: 'Nunito', sans-serif;
+            color: white;
+            background: linear-gradient(180deg, #ff6b6b, #ee5a5a);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #cc4444, 0 10px 30px rgba(255,107,107,0.3);
+            transition: all 0.2s ease;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 9px 0 #cc4444, 0 15px 40px rgba(255,107,107,0.4);
+        }
+
+        .start-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 3px 0 #cc4444;
+        }
+
+        .start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Kazanan ekranı */
+        .winner-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.97);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 20px;
+        }
+
+        .winner-screen.hidden {
+            display: none;
+        }
+
+        .winner-emoji {
+            font-size: 100px;
+            animation: winnerBounce 1s infinite ease-in-out;
+        }
+
+        @keyframes winnerBounce {
+            0%, 100% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+
+        .winner-text {
+            font-size: 36px;
+            color: #ff6b6b;
+            text-shadow: 2px 2px 0 #4ecdc4;
+            margin: 20px 0;
+        }
+
+        .winner-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .start-btn.secondary {
+            background: linear-gradient(180deg, #4ecdc4, #44a08d);
+            box-shadow: 0 6px 0 #2d8a7f, 0 10px 30px rgba(78,205,196,0.3);
+        }
+
+        .start-btn.secondary:hover {
+            box-shadow: 0 9px 0 #2d8a7f, 0 15px 40px rgba(78,205,196,0.4);
+        }
+
+        .start-btn.secondary:active {
+            box-shadow: 0 3px 0 #2d8a7f;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            animation: confettiFall 3s linear infinite;
+        }
+
+        @keyframes confettiFall {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(600px) rotate(720deg); opacity: 0; }
+        }
+
+        /* Geri sayım */
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            color: #ff6b6b;
+            text-shadow: 4px 4px 0 #4ecdc4;
+            z-index: 5;
+            animation: countdownPop 1s ease;
+        }
+
+        .countdown.hidden {
+            display: none;
+        }
+
+        @keyframes countdownPop {
+            0% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+        }
+
+        /* Skor popup */
+        .score-popup {
+            position: absolute;
+            font-size: 60px;
+            pointer-events: none;
+            animation: scorePopup 1s ease forwards;
+            z-index: 5;
+        }
+
+        @keyframes scorePopup {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            100% { transform: translate(-50%, -100px) scale(1); opacity: 0; }
+        }
+
+        /* Ayarlar butonu */
+        .settings-toggle {
+            margin-top: 20px;
+            padding: 10px 25px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            color: #666;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .settings-toggle:hover {
+            background: #f5f5f5;
+            border-color: #bbb;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px 40px;
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+            animation: modalPop 0.3s ease;
+        }
+
+        .modal-content.animal-modal {
+            max-width: 550px;
+        }
+
+        .modal-content.settings-modal {
+            max-width: 650px;
+        }
+
+        @keyframes modalPop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 35px;
+            height: 35px;
+            border: none;
+            background: #f0f0f0;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #666;
+        }
+
+        .modal-close:hover {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .modal-title {
+            color: #333;
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .setting-label {
+            color: #555;
+            font-size: 16px;
+            font-weight: 700;
+            min-width: 140px;
+            flex-shrink: 0;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+        }
+
+        .slider-label {
+            font-size: 20px;
+        }
+
+        .speed-value {
+            color: #333;
+            font-size: 14px;
+            font-weight: 700;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 12px;
+            min-width: 100px;
+            text-align: center;
+            border: 2px solid #e0e8f0;
+            flex-shrink: 0;
+        }
+
+        .speed-slider {
+            flex: 1;
+            height: 12px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(90deg, #4ecdc4, #ffeb3b, #ff6b6b);
+            border-radius: 10px;
+            outline: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 3px solid #333;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .speed-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .speed-slider::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 3px solid #333;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .size-slider {
+            flex: 1;
+            height: 12px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(90deg, #a8e6cf, #4ecdc4, #2d8a7f);
+            border-radius: 10px;
+            outline: none;
+        }
+
+        .size-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 3px solid #333;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+        }
+
+        .size-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .size-slider::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            background: white;
+            border: 3px solid #333;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .score-options {
+            display: flex;
+            gap: 15px;
+        }
+
+        .score-btn {
+            padding: 12px 25px;
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            color: #666;
+            background: white;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .score-btn:hover {
+            transform: scale(1.05);
+            border-color: #aaa;
+        }
+
+        .score-btn.active {
+            background: linear-gradient(180deg, #ffeb3b, #ffc107);
+            color: #333;
+            border-color: #ff9800;
+            box-shadow: 0 4px 15px rgba(255,193,7,0.4);
+        }
+
+        .sound-toggle {
+            display: flex;
+            gap: 15px;
+        }
+
+        .sound-btn {
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            color: #666;
+            background: white;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sound-btn:hover {
+            transform: scale(1.05);
+            border-color: #aaa;
+        }
+
+        .sound-btn.active {
+            background: linear-gradient(180deg, #4ecdc4, #26a69a);
+            color: white;
+            border-color: #1e8e82;
+            box-shadow: 0 4px 15px rgba(78,205,196,0.4);
+        }
+
+        .modal-save {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            color: white;
+            background: linear-gradient(180deg, #4ecdc4, #44a08d);
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #2d8a7f;
+            transition: all 0.2s ease;
+        }
+
+        .modal-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #2d8a7f;
+        }
+
+        .modal-save:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #2d8a7f;
+        }
+
+        /* Hayvan grid */
+        .animal-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .animal-grid-btn {
+            width: 55px;
+            height: 55px;
+            font-size: 30px;
+            background: white;
+            border: 2px solid #e0e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .animal-grid-btn:hover {
+            transform: scale(1.15);
+            border-color: #4ecdc4;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        /* Üst kontrol butonları */
+        .top-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-shrink: 0;
+        }
+
+        .top-controls.hidden {
+            display: none;
+        }
+
+        /* Ana menü butonu */
+        .menu-btn {
+            padding: 10px 25px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: 'Nunito', sans-serif;
+            color: white;
+            background: linear-gradient(180deg, #ff6b6b, #ee5a5a);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #cc4444, 0 6px 20px rgba(255,107,107,0.3);
+            transition: all 0.2s ease;
+        }
+
+        .menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #cc4444, 0 10px 25px rgba(255,107,107,0.4);
+        }
+
+        .menu-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #cc4444;
+        }
+
+        /* Pause butonu */
+        .pause-btn {
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+            background: linear-gradient(180deg, #ffd93d, #f39c12);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #d68910, 0 6px 15px rgba(243,156,18,0.3);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pause-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #d68910, 0 10px 20px rgba(243,156,18,0.4);
+        }
+
+        .pause-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #d68910;
+        }
+
+        .pause-btn.paused {
+            background: linear-gradient(180deg, #4ecdc4, #26a69a);
+            box-shadow: 0 4px 0 #1e8e82, 0 6px 15px rgba(78,205,196,0.3);
+        }
+
+        .pause-btn.paused:hover {
+            box-shadow: 0 6px 0 #1e8e82, 0 10px 20px rgba(78,205,196,0.4);
+        }
+
+        /* Alt kontroller */
+        .bottom-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 8px 20px;
+            flex-shrink: 0;
+        }
+
+        .control-hint {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 35px;
+            height: 35px;
+            padding: 0 10px;
+            background: white;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            color: #333;
+            font-size: 12px;
+            font-weight: 700;
+            box-shadow: 0 3px 0 #ccc;
+        }
+    </style>
+</head>
+<body>
+    <!-- Arka Plan Müziği -->
+    <audio id="mainMusic" loop>
+        <source src="number1-main.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Yıldızlı arka plan -->
+    <div class="stars" id="stars"></div>
+
+    <div class="game-container">
+        <!-- Üst Kontrol Butonları -->
+        <div class="top-controls hidden" id="topControls">
+            <button class="pause-btn" id="pauseBtn">⏸️</button>
+            <button class="menu-btn" id="menuBtn">🏠 Ana Menü</button>
+        </div>
+
+        <!-- Skor tablosu -->
+        <div class="scoreboard">
+            <button class="controller-btn" id="controllerLeft" title="Sol Oyuncu Controller">🎮</button>
+            
+            <div class="player-score">
+                <div class="player-avatar left clickable" id="avatar1" title="Profili Düzenle">🐱</div>
+                <div class="player-info">
+                    <span class="player-name" id="name1">Oyuncu 1</span>
+                    <div class="stars-wrapper" id="stars1">
+                        <div class="stars-row">
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                        </div>
+                        <div class="stars-row hidden">
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="player-points" id="points1">0</div>
+            </div>
+            
+            <div class="scoreboard-divider"></div>
+            
+            <div class="player-score">
+                <div class="player-points" id="points2">0</div>
+                <div class="player-info">
+                    <span class="player-name" id="name2">Oyuncu 2</span>
+                    <div class="stars-wrapper" id="stars2">
+                        <div class="stars-row">
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                        </div>
+                        <div class="stars-row hidden">
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                            <span class="star-icon">⭐</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="player-avatar right clickable" id="avatar2" title="Profili Düzenle">🐶</div>
+            </div>
+            
+            <button class="controller-btn" id="controllerRight" title="Sağ Oyuncu Controller">🎮</button>
+        </div>
+
+        <!-- Oyun alanı -->
+        <div class="game-area" id="gameArea">
+            <div class="center-line"></div>
+            <div class="center-circle"></div>
+            
+            <div class="paddle paddle-left" id="paddleLeft"></div>
+            <div class="paddle paddle-right" id="paddleRight"></div>
+            <div class="ball" id="ball"></div>
+
+            <div class="goal-effect left" id="goalLeft"></div>
+            <div class="goal-effect right" id="goalRight"></div>
+
+            <div class="countdown hidden" id="countdown"></div>
+
+            <!-- Başlangıç ekranı -->
+            <div class="start-screen" id="startScreen">
+                <h1 class="game-title">🏓 Hayvan Ping Pong! 🏓</h1>
+                
+                <div class="character-select">
+                    <div class="character-panel">
+                        <span class="panel-title red">🔴 Sol Oyuncu</span>
+                        <div class="selected-character" id="selectedChar1">🐱</div>
+                    </div>
+                    
+                    <div class="character-panel">
+                        <span class="panel-title green">🟢 Sağ Oyuncu</span>
+                        <div class="selected-character" id="selectedChar2">🐶</div>
+                    </div>
+                </div>
+
+                <button class="start-btn" id="startBtn">🎮 OYNA! 🎮</button>
+                
+                <button class="settings-toggle" id="settingsToggle">⚙️ Ayarlar</button>
+            </div>
+
+            <!-- Kazanan ekranı -->
+            <div class="winner-screen hidden" id="winnerScreen">
+                <div class="winner-emoji" id="winnerEmoji">🎉</div>
+                <h2 class="winner-text" id="winnerText">Kazanan!</h2>
+                <div class="winner-buttons">
+                    <button class="start-btn" id="playAgainBtn">🔄 Tekrar Oyna!</button>
+                    <button class="start-btn secondary" id="backToMenuBtn">🏠 Ana Menü</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ayarlar Modal -->
+        <div class="modal-overlay hidden" id="settingsModal">
+            <div class="modal-content settings-modal">
+                <button class="modal-close" id="closeSettings">✕</button>
+                <h2 class="modal-title">⚙️ Ayarlar</h2>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🏃 Top Hızı</span>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <span class="slider-label">🐢</span>
+                            <input type="range" class="speed-slider" id="speedSlider" min="2" max="10" step="0.5" value="5">
+                            <span class="slider-label">🚀</span>
+                        </div>
+                        <span class="speed-value" id="speedValue">Normal</span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">⚽ Top Büyüklüğü</span>
+                    <div class="setting-control">
+                        <div class="slider-container">
+                            <span class="slider-label">🔹</span>
+                            <input type="range" class="size-slider" id="sizeSlider" min="2" max="6" step="0.5" value="3">
+                            <span class="slider-label">🔷</span>
+                        </div>
+                        <span class="speed-value" id="sizeValue">Normal</span>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🏆 Kazanma Puanı</span>
+                    <div class="setting-control">
+                        <div class="score-options">
+                            <button class="score-btn active" data-score="5">⭐ 5</button>
+                            <button class="score-btn" data-score="10">⭐ 10</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="setting-item">
+                    <span class="setting-label">🔊 Ses</span>
+                    <div class="setting-control">
+                        <div class="sound-toggle">
+                            <button class="sound-btn active" id="soundOn">🔊 Açık</button>
+                            <button class="sound-btn" id="soundOff">🔇 Kapalı</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="modal-save" id="saveSettings">✓ Kaydet</button>
+            </div>
+        </div>
+
+        <!-- Hayvan Seçim Modal -->
+        <div class="modal-overlay hidden" id="animalModal">
+            <div class="modal-content animal-modal">
+                <button class="modal-close" id="closeAnimal">✕</button>
+                <h2 class="modal-title">🐾 Hayvan Seç</h2>
+                
+                <div class="animal-grid" id="animalGrid">
+                    <!-- Hayvanlar JavaScript ile doldurulacak -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Controller Modal -->
+        <div class="modal-overlay hidden" id="controllerModal">
+            <div class="modal-content">
+                <button class="modal-close" id="closeController">✕</button>
+                <h2 class="modal-title" id="controllerModalTitle">🎮 Controller Bağla</h2>
+                
+                <div id="controllerNotConnected">
+                    <p class="controller-info">LEGO PoweredUp Remote Controller'ı bağlamak için aşağıdaki butona tıklayın.</p>
+                    <button class="modal-save" id="btnConnectController">🔗 Controller Bağla</button>
+                </div>
+                
+                <div id="controllerConnected" style="display: none;">
+                    <div class="controller-connected-info">
+                        <span class="controller-status-icon">✅</span>
+                        <span id="connectedDeviceName">Remote Controller</span>
+                    </div>
+                    <p class="controller-info">Controller başarıyla bağlandı!</p>
+                    <button class="modal-save disconnect-btn" id="btnDisconnectController">🔌 Bağlantıyı Kes</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Oyuncu Profil Modal -->
+        <div class="modal-overlay hidden" id="playerProfileModal">
+            <div class="modal-content player-profile-modal">
+                <button class="modal-close" id="closePlayerProfile">✕</button>
+                <h2 class="modal-title" id="playerProfileTitle">👤 Oyuncu Profili</h2>
+                
+                <div class="profile-section">
+                    <label class="profile-label">📝 İsim</label>
+                    <input type="text" class="profile-input" id="playerNameInput" maxlength="12" placeholder="İsim girin...">
+                </div>
+                
+                <div class="profile-section">
+                    <label class="profile-label">🐾 Karakter</label>
+                    <div class="profile-animal-grid" id="profileAnimalGrid">
+                        <!-- Hayvanlar JavaScript ile doldurulacak -->
+                    </div>
+                </div>
+                
+                <button class="modal-save" id="savePlayerProfile">✓ Kaydet</button>
+            </div>
+        </div>
+
+        <!-- Kontroller -->
+        <div class="bottom-controls">
+            <div class="control-hint">
+                <span class="key">W</span>
+                <span>Yukarı</span>
+                <span class="key">S</span>
+                <span>Aşağı</span>
+            </div>
+            
+            <div class="control-hint">
+                <span class="key">↑</span>
+                <span>Yukarı</span>
+                <span class="key">↓</span>
+                <span>Aşağı</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ses Efektleri -->
+    <audio id="mainMusic" loop>
+        <source src="mainmusic.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // Ses efektleri oluştur (Web Audio API ile)
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Ana müzik
+        const mainMusic = document.getElementById('mainMusic');
+        mainMusic.volume = 0.3;
+        
+        // Sayfa tıklandığında müziği başlat (autoplay policy)
+        let musicStarted = false;
+        document.addEventListener('click', () => {
+            if (!musicStarted && soundEnabled) {
+                mainMusic.play().catch(e => console.log('Music autoplay blocked'));
+                musicStarted = true;
+            }
+        }, { once: false });
+        
+        // Ses efektleri fonksiyonları
+        function playSound(type) {
+            if (!soundEnabled) return;
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            switch(type) {
+                case 'paddle':
+                    // Rakete değme - kısa tık sesi
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.1);
+                    break;
+                    
+                case 'wall':
+                    // Duvara değme - düşük tık sesi
+                    oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.08);
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.08);
+                    break;
+                    
+                case 'score':
+                    // Gol atma - başarı melodisi
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(523, audioContext.currentTime); // C5
+                    oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.1); // E5
+                    oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.2); // G5
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.4);
+                    break;
+                    
+                case 'win':
+                    // Kazanma - kutlama melodisi
+                    const notes = [523, 587, 659, 784, 880, 784, 880];
+                    const noteDuration = 0.12;
+                    oscillator.type = 'sine';
+                    notes.forEach((freq, i) => {
+                        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + i * noteDuration);
+                    });
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + notes.length * noteDuration);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + notes.length * noteDuration);
+                    break;
+            }
+        }
+
+        // Renkli balonlar oluştur
+        const starsContainer = document.getElementById('stars');
+        const bubbleColors = ['#ff6b6b', '#4ecdc4', '#ffeb3b', '#ff9800', '#e91e63', '#9c27b0', '#3f51b5', '#00bcd4'];
+        for (let i = 0; i < 30; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            const size = Math.random() * 30 + 15;
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.background = bubbleColors[Math.floor(Math.random() * bubbleColors.length)];
+            star.style.animationDelay = Math.random() * 4 + 's';
+            star.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            starsContainer.appendChild(star);
+        }
+
+        // Tüm hayvanlar listesi
+        const allAnimals = [
+            '🐱', '🐶', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵',
+            '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋',
+            '🐌', '🐞', '🐜', '🦗', '🐢', '🐍', '🦎', '🦂', '🐙', '🦑', '🦐', '🦀', '🐡', '🐠', '🐟',
+            '🐬', '🐳', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🦒', '🦘',
+            '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐈', '🐓'
+        ];
+
+        // DOM elementleri
+        const gameArea = document.getElementById('gameArea');
+        const paddleLeft = document.getElementById('paddleLeft');
+        const paddleRight = document.getElementById('paddleRight');
+        const ball = document.getElementById('ball');
+        const startScreen = document.getElementById('startScreen');
+        const winnerScreen = document.getElementById('winnerScreen');
+        const countdown = document.getElementById('countdown');
+        const menuBtn = document.getElementById('menuBtn');
+        const topControls = document.getElementById('topControls');
+        const settingsModal = document.getElementById('settingsModal');
+        const animalModal = document.getElementById('animalModal');
+        const animalGrid = document.getElementById('animalGrid');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+
+        const sizeSlider = document.getElementById('sizeSlider');
+        const sizeValue = document.getElementById('sizeValue');
+
+        // Oyun sabitleri (yüzde bazlı)
+        const PADDLE_HEIGHT = 20; // %
+        const PADDLE_WIDTH = 2.5; // %
+        let BALL_SIZE = 3; // %
+        const PADDLE_SPEED = 2; // % per frame
+        let WINNING_SCORE = 5;
+        let selectedWinScore = 5;
+        let soundEnabled = true;
+
+        // Oyun değişkenleri
+        let baseBallSpeed = 0.5;
+        let gameRunning = false;
+        let gamePaused = false;
+        let currentAnimalPlayer = 1;
+        let player1 = { y: 50 - PADDLE_HEIGHT / 2, score: 0, animal: '🐱' };
+        let player2 = { y: 50 - PADDLE_HEIGHT / 2, score: 0, animal: '🐶' };
+        let ballState = { x: 50, y: 50, vx: 0.5, vy: 0.3 };
+        let keys = {};
+
+        const pauseBtn = document.getElementById('pauseBtn');
+
+        // Hız slider güncelleme
+        function updateSpeedLabel() {
+            const val = parseFloat(speedSlider.value);
+            if (val <= 3) speedValue.textContent = '🐢 Çok Yavaş';
+            else if (val <= 4.5) speedValue.textContent = '🐢 Yavaş';
+            else if (val <= 5.5) speedValue.textContent = '🐇 Normal';
+            else if (val <= 7) speedValue.textContent = '🏃 Hızlı';
+            else if (val <= 8.5) speedValue.textContent = '🚀 Çok Hızlı';
+            else speedValue.textContent = '⚡ Süper Hızlı';
+        }
+        speedSlider.addEventListener('input', updateSpeedLabel);
+
+        // Büyüklük slider güncelleme
+        function updateSizeLabel() {
+            const val = parseFloat(sizeSlider.value);
+            if (val <= 2.5) sizeValue.textContent = '🔹 Çok Küçük';
+            else if (val <= 3) sizeValue.textContent = '🔹 Küçük';
+            else if (val <= 4) sizeValue.textContent = '⚽ Normal';
+            else if (val <= 5) sizeValue.textContent = '🔷 Büyük';
+            else sizeValue.textContent = '🔷 Çok Büyük';
+        }
+        sizeSlider.addEventListener('input', updateSizeLabel);
+
+        // Ayarlar modal
+        document.getElementById('settingsToggle').addEventListener('click', () => {
+            settingsModal.classList.remove('hidden');
+        });
+
+        document.getElementById('closeSettings').addEventListener('click', () => {
+            settingsModal.classList.add('hidden');
+        });
+
+        document.getElementById('saveSettings').addEventListener('click', () => {
+            baseBallSpeed = parseFloat(speedSlider.value) / 10;
+            BALL_SIZE = parseFloat(sizeSlider.value);
+            WINNING_SCORE = selectedWinScore;
+            ball.style.width = BALL_SIZE + '%';
+            updateStarsDisplay();
+            settingsModal.classList.add('hidden');
+        });
+
+        // Puan seçeneği butonları
+        document.querySelectorAll('.score-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.score-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedWinScore = parseInt(btn.dataset.score);
+            });
+        });
+
+        // Ses toggle butonları
+        document.getElementById('soundOn').addEventListener('click', () => {
+            document.getElementById('soundOn').classList.add('active');
+            document.getElementById('soundOff').classList.remove('active');
+            soundEnabled = true;
+        });
+
+        document.getElementById('soundOff').addEventListener('click', () => {
+            document.getElementById('soundOff').classList.add('active');
+            document.getElementById('soundOn').classList.remove('active');
+            soundEnabled = false;
+            mainMusic.pause();
+        });
+
+        // Yıldız görünümünü güncelle (5 veya 10 mod)
+        function updateStarsDisplay() {
+            const stars1Wrapper = document.getElementById('stars1');
+            const stars2Wrapper = document.getElementById('stars2');
+            const rows1 = stars1Wrapper.querySelectorAll('.stars-row');
+            const rows2 = stars2Wrapper.querySelectorAll('.stars-row');
+            
+            if (WINNING_SCORE === 10) {
+                rows1[1].classList.remove('hidden');
+                rows2[1].classList.remove('hidden');
+            } else {
+                rows1[1].classList.add('hidden');
+                rows2[1].classList.add('hidden');
+            }
+        }
+
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) settingsModal.classList.add('hidden');
+        });
+
+        // Hayvan grid'ini doldur (eski modal için - artık kullanılmıyor)
+        function populateAnimalGrid() {
+            animalGrid.innerHTML = '';
+            allAnimals.forEach(animal => {
+                const btn = document.createElement('button');
+                btn.className = 'animal-grid-btn';
+                btn.textContent = animal;
+                btn.addEventListener('click', () => selectAnimalFromModal(animal));
+                animalGrid.appendChild(btn);
+            });
+        }
+        populateAnimalGrid();
+
+        function selectAnimalFromModal(animal) {
+            if (currentAnimalPlayer === 1) {
+                player1.animal = animal;
+                document.getElementById('avatar1').textContent = animal;
+                document.getElementById('selectedChar1').textContent = animal;
+            } else {
+                player2.animal = animal;
+                document.getElementById('avatar2').textContent = animal;
+                document.getElementById('selectedChar2').textContent = animal;
+            }
+            animalModal.classList.add('hidden');
+        }
+
+        document.getElementById('closeAnimal').addEventListener('click', () => {
+            animalModal.classList.add('hidden');
+        });
+
+        animalModal.addEventListener('click', (e) => {
+            if (e.target === animalModal) animalModal.classList.add('hidden');
+        });
+
+        // Oyunu başlat
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('playAgainBtn').addEventListener('click', () => {
+            winnerScreen.querySelectorAll('.confetti').forEach(c => c.remove());
+            winnerScreen.classList.add('hidden');
+            topControls.classList.add('hidden');
+            resetGame();
+            startGame();
+        });
+
+        // Ana menüye dön
+        menuBtn.addEventListener('click', () => {
+            gameRunning = false;
+            gamePaused = false;
+            topControls.classList.add('hidden');
+            resetGame();
+            startScreen.classList.remove('hidden');
+        });
+
+        // Pause butonu
+        pauseBtn.addEventListener('click', () => {
+            if (!gameRunning && !gamePaused) return;
+            
+            gamePaused = !gamePaused;
+            
+            if (gamePaused) {
+                gameRunning = false;
+                pauseBtn.textContent = '▶️';
+                pauseBtn.classList.add('paused');
+                mainMusic.pause();
+            } else {
+                gameRunning = true;
+                pauseBtn.textContent = '⏸️';
+                pauseBtn.classList.remove('paused');
+                if (musicStarted && soundEnabled) mainMusic.play().catch(e => {});
+                gameLoop();
+            }
+        });
+
+        document.getElementById('backToMenuBtn').addEventListener('click', () => {
+            winnerScreen.querySelectorAll('.confetti').forEach(c => c.remove());
+            winnerScreen.classList.add('hidden');
+            topControls.classList.add('hidden');
+            resetGame();
+            startScreen.classList.remove('hidden');
+        });
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            topControls.classList.remove('hidden');
+            gamePaused = false;
+            pauseBtn.textContent = '⏸️';
+            pauseBtn.classList.remove('paused');
+            
+            let count = 3;
+            countdown.classList.remove('hidden');
+            countdown.textContent = count;
+            
+            const countInterval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdown.textContent = count;
+                    countdown.style.animation = 'none';
+                    countdown.offsetHeight;
+                    countdown.style.animation = 'countdownPop 1s ease';
+                } else {
+                    countdown.textContent = '🏓';
+                    setTimeout(() => {
+                        countdown.classList.add('hidden');
+                        gameRunning = true;
+                        gameLoop();
+                    }, 500);
+                    clearInterval(countInterval);
+                }
+            }, 1000);
+        }
+
+        function resetGame() {
+            player1.score = 0;
+            player2.score = 0;
+            player1.y = 50 - PADDLE_HEIGHT / 2;
+            player2.y = 50 - PADDLE_HEIGHT / 2;
+            updateStarsDisplay();
+            updateStars();
+            resetBall();
+        }
+
+        function resetBall() {
+            ballState.x = 50;
+            ballState.y = 50;
+            ballState.vx = (Math.random() > 0.5 ? 1 : -1) * baseBallSpeed;
+            ballState.vy = (Math.random() - 0.5) * baseBallSpeed * 1.2;
+            updatePositions();
+        }
+
+        // Klavye kontrolleri
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            keys[e.key] = true;
+            if (['ArrowUp', 'ArrowDown'].includes(e.key)) e.preventDefault();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+            keys[e.key] = false;
+        });
+
+        function updatePositions() {
+            paddleLeft.style.top = player1.y + '%';
+            paddleRight.style.top = player2.y + '%';
+            ball.style.left = ballState.x + '%';
+            ball.style.top = ballState.y + '%';
+        }
+
+        function updateStars() {
+            const stars1 = document.querySelectorAll('#stars1 .star-icon');
+            const stars2 = document.querySelectorAll('#stars2 .star-icon');
+            
+            stars1.forEach((star, i) => {
+                star.classList.toggle('active', i < player1.score);
+            });
+            
+            stars2.forEach((star, i) => {
+                star.classList.toggle('active', i < player2.score);
+            });
+            
+            // Sayısal puanları güncelle
+            document.getElementById('points1').textContent = player1.score;
+            document.getElementById('points2').textContent = player2.score;
+        }
+
+        function showScorePopup(x, emoji) {
+            const popup = document.createElement('div');
+            popup.className = 'score-popup';
+            popup.textContent = emoji;
+            popup.style.left = x + '%';
+            popup.style.top = '50%';
+            gameArea.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+        }
+
+        function showGoalEffect(side) {
+            const effect = document.getElementById('goal' + side);
+            effect.classList.add('active');
+            setTimeout(() => effect.classList.remove('active'), 500);
+        }
+
+        function checkWinner() {
+            if (player1.score >= WINNING_SCORE) {
+                gameRunning = false;
+                showWinner(player1.animal, '🔴 Sol Oyuncu');
+                return true;
+            }
+            if (player2.score >= WINNING_SCORE) {
+                gameRunning = false;
+                showWinner(player2.animal, '🟢 Sağ Oyuncu');
+                return true;
+            }
+            return false;
+        }
+
+        function showWinner(emoji, name) {
+            document.getElementById('winnerEmoji').textContent = emoji;
+            document.getElementById('winnerText').textContent = name + ' Kazandı! 🎉';
+            winnerScreen.classList.remove('hidden');
+            playSound('win');
+            
+            const colors = ['#ff6b6b', '#4ecdc4', '#ffcc00', '#ff9500', '#9b59b6', '#3498db'];
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animationDelay = Math.random() * 2 + 's';
+                winnerScreen.appendChild(confetti);
+            }
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            // Oyuncu 1 hareketi (W/S)
+            if (keys['w'] && player1.y > 0) {
+                player1.y -= PADDLE_SPEED;
+            }
+            if (keys['s'] && player1.y < 100 - PADDLE_HEIGHT) {
+                player1.y += PADDLE_SPEED;
+            }
+
+            // Oyuncu 2 hareketi (Yukarı/Aşağı ok)
+            if (keys['ArrowUp'] && player2.y > 0) {
+                player2.y -= PADDLE_SPEED;
+            }
+            if (keys['ArrowDown'] && player2.y < 100 - PADDLE_HEIGHT) {
+                player2.y += PADDLE_SPEED;
+            }
+
+            // Top hareketi
+            ballState.x += ballState.vx;
+            ballState.y += ballState.vy;
+
+            // Üst/alt duvar çarpması
+            if (ballState.y <= BALL_SIZE / 2 || ballState.y >= 100 - BALL_SIZE / 2) {
+                ballState.vy *= -1;
+                ballState.y = Math.max(BALL_SIZE / 2, Math.min(100 - BALL_SIZE / 2, ballState.y));
+                playSound('wall');
+            }
+
+            // Sol raket çarpması
+            const leftPaddleRight = 2.5 + PADDLE_WIDTH;
+            if (ballState.x - BALL_SIZE / 2 <= leftPaddleRight &&
+                ballState.x - BALL_SIZE / 2 >= 2.5 &&
+                ballState.y >= player1.y &&
+                ballState.y <= player1.y + PADDLE_HEIGHT) {
+                ballState.vx = Math.abs(ballState.vx) * 1.03;
+                ballState.vy += (ballState.y - (player1.y + PADDLE_HEIGHT / 2)) * 0.05;
+                paddleLeft.classList.add('hit');
+                setTimeout(() => paddleLeft.classList.remove('hit'), 200);
+                playSound('paddle');
+            }
+
+            // Sağ raket çarpması
+            const rightPaddleLeft = 100 - 2.5 - PADDLE_WIDTH;
+            if (ballState.x + BALL_SIZE / 2 >= rightPaddleLeft &&
+                ballState.x + BALL_SIZE / 2 <= 100 - 2.5 &&
+                ballState.y >= player2.y &&
+                ballState.y <= player2.y + PADDLE_HEIGHT) {
+                ballState.vx = -Math.abs(ballState.vx) * 1.03;
+                ballState.vy += (ballState.y - (player2.y + PADDLE_HEIGHT / 2)) * 0.05;
+                paddleRight.classList.add('hit');
+                setTimeout(() => paddleRight.classList.remove('hit'), 200);
+                playSound('paddle');
+            }
+
+            // Hız limiti
+            const maxSpeed = baseBallSpeed * 2.5;
+            ballState.vx = Math.max(-maxSpeed, Math.min(maxSpeed, ballState.vx));
+            ballState.vy = Math.max(-maxSpeed * 0.8, Math.min(maxSpeed * 0.8, ballState.vy));
+
+            // Gol kontrolü - Sol taraftan çıktı (Oyuncu 2 sayı aldı)
+            if (ballState.x < 0) {
+                gameRunning = false; // Oyunu durdur
+                player2.score++;
+                updateStars();
+                showScorePopup(75, player2.animal);
+                showGoalEffect('Left');
+                playSound('score');
+                
+                if (!checkWinner()) {
+                    // 1.5 saniye bekle, sonra yeni tur başlat
+                    setTimeout(() => {
+                        resetBall();
+                        gameRunning = true;
+                        gameLoop();
+                    }, 1500);
+                }
+                return;
+            }
+            
+            // Sağ taraftan çıktı (Oyuncu 1 sayı aldı)
+            if (ballState.x > 100) {
+                gameRunning = false; // Oyunu durdur
+                player1.score++;
+                updateStars();
+                showScorePopup(25, player1.animal);
+                showGoalEffect('Right');
+                playSound('score');
+                
+                if (!checkWinner()) {
+                    // 1.5 saniye bekle, sonra yeni tur başlat
+                    setTimeout(() => {
+                        resetBall();
+                        gameRunning = true;
+                        gameLoop();
+                    }, 1500);
+                }
+                return;
+            }
+
+            updatePositions();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Başlangıç konumları
+        updatePositions();
+        updateSpeedLabel();
+        updateSizeLabel();
+
+        // ==========================================
+        // PLAYER PROFILE MODAL
+        // ==========================================
+
+        const playerProfileModal = document.getElementById('playerProfileModal');
+        const playerProfileTitle = document.getElementById('playerProfileTitle');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const profileAnimalGrid = document.getElementById('profileAnimalGrid');
+        let currentProfilePlayer = 1;
+        let selectedProfileAnimal = '🐱';
+
+        // Profil hayvan grid'ini doldur
+        function populateProfileAnimalGrid() {
+            profileAnimalGrid.innerHTML = '';
+            allAnimals.forEach(animal => {
+                const btn = document.createElement('button');
+                btn.className = 'profile-animal-btn';
+                btn.textContent = animal;
+                btn.dataset.animal = animal;
+                btn.addEventListener('click', () => selectProfileAnimal(animal));
+                profileAnimalGrid.appendChild(btn);
+            });
+        }
+        populateProfileAnimalGrid();
+
+        function selectProfileAnimal(animal) {
+            selectedProfileAnimal = animal;
+            profileAnimalGrid.querySelectorAll('.profile-animal-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.animal === animal);
+            });
+        }
+
+        function openPlayerProfileModal(playerNum) {
+            currentProfilePlayer = playerNum;
+            const player = playerNum === 1 ? player1 : player2;
+            const color = playerNum === 1 ? '🔴' : '🟢';
+            
+            playerProfileTitle.textContent = `${color} ${playerNum === 1 ? 'Sol' : 'Sağ'} Oyuncu Profili`;
+            playerNameInput.value = document.getElementById(`name${playerNum}`).textContent;
+            selectedProfileAnimal = player.animal;
+            
+            // Seçili hayvanı işaretle
+            profileAnimalGrid.querySelectorAll('.profile-animal-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.animal === player.animal);
+            });
+            
+            playerProfileModal.classList.remove('hidden');
+            playerNameInput.focus();
+        }
+
+        // Avatar'lara tıklama
+        document.getElementById('avatar1').addEventListener('click', () => openPlayerProfileModal(1));
+        document.getElementById('avatar2').addEventListener('click', () => openPlayerProfileModal(2));
+
+        document.getElementById('closePlayerProfile').addEventListener('click', () => {
+            playerProfileModal.classList.add('hidden');
+        });
+
+        playerProfileModal.addEventListener('click', (e) => {
+            if (e.target === playerProfileModal) playerProfileModal.classList.add('hidden');
+        });
+
+        document.getElementById('savePlayerProfile').addEventListener('click', () => {
+            const player = currentProfilePlayer === 1 ? player1 : player2;
+            const newName = playerNameInput.value.trim() || `Oyuncu ${currentProfilePlayer}`;
+            
+            // İsmi güncelle
+            document.getElementById(`name${currentProfilePlayer}`).textContent = newName;
+            
+            // Karakteri güncelle
+            player.animal = selectedProfileAnimal;
+            document.getElementById(`avatar${currentProfilePlayer}`).textContent = selectedProfileAnimal;
+            
+            // Ana sayfadaki büyük karakteri de güncelle
+            document.getElementById(`selectedChar${currentProfilePlayer}`).textContent = selectedProfileAnimal;
+            
+            playerProfileModal.classList.add('hidden');
+        });
+
+        // ==========================================
+        // BLUETOOTH CONTROLLER FUNCTIONS
+        // ==========================================
+
+        const LWP3_SERVICE_UUID = '00001623-1212-efde-1623-785feabcd123';
+        const LWP3_CHAR_UUID = '00001624-1212-efde-1623-785feabcd123';
+
+        // Controller durumları - Sol ve Sağ için ayrı
+        let leftController = {
+            device: null,
+            server: null,
+            characteristic: null,
+            connected: false
+        };
+
+        let rightController = {
+            device: null,
+            server: null,
+            characteristic: null,
+            connected: false
+        };
+
+        let currentControllerSide = 'left'; // Hangi controller için modal açık
+
+        const controllerModal = document.getElementById('controllerModal');
+        const controllerModalTitle = document.getElementById('controllerModalTitle');
+        const controllerNotConnected = document.getElementById('controllerNotConnected');
+        const controllerConnectedDiv = document.getElementById('controllerConnected');
+        const connectedDeviceName = document.getElementById('connectedDeviceName');
+
+        // Controller butonlarına tıklama
+        document.getElementById('controllerLeft').addEventListener('click', () => {
+            currentControllerSide = 'left';
+            controllerModalTitle.textContent = '🎮 Sol Oyuncu Controller';
+            updateControllerModalUI(leftController);
+            controllerModal.classList.remove('hidden');
+        });
+
+        document.getElementById('controllerRight').addEventListener('click', () => {
+            currentControllerSide = 'right';
+            controllerModalTitle.textContent = '🎮 Sağ Oyuncu Controller';
+            updateControllerModalUI(rightController);
+            controllerModal.classList.remove('hidden');
+        });
+
+        document.getElementById('closeController').addEventListener('click', () => {
+            controllerModal.classList.add('hidden');
+        });
+
+        controllerModal.addEventListener('click', (e) => {
+            if (e.target === controllerModal) controllerModal.classList.add('hidden');
+        });
+
+        document.getElementById('btnConnectController').addEventListener('click', connectController);
+        document.getElementById('btnDisconnectController').addEventListener('click', disconnectController);
+
+        function updateControllerModalUI(controller) {
+            if (controller.connected) {
+                controllerNotConnected.style.display = 'none';
+                controllerConnectedDiv.style.display = 'block';
+                connectedDeviceName.textContent = controller.device?.name || 'Remote Controller';
+            } else {
+                controllerNotConnected.style.display = 'block';
+                controllerConnectedDiv.style.display = 'none';
+            }
+        }
+
+        function updateControllerButtonUI() {
+            const leftBtn = document.getElementById('controllerLeft');
+            const rightBtn = document.getElementById('controllerRight');
+            
+            if (leftController.connected) {
+                leftBtn.classList.add('connected');
+            } else {
+                leftBtn.classList.remove('connected');
+            }
+            
+            if (rightController.connected) {
+                rightBtn.classList.add('connected');
+            } else {
+                rightBtn.classList.remove('connected');
+            }
+        }
+
+        async function connectController() {
+            if (!navigator.bluetooth) {
+                alert('Bu tarayıcı Web Bluetooth desteklemiyor. Chrome, Edge veya Opera kullanın.');
+                return;
+            }
+
+            const controller = currentControllerSide === 'left' ? leftController : rightController;
+
+            try {
+                const options = {
+                    filters: [{ services: [LWP3_SERVICE_UUID] }],
+                    optionalServices: [LWP3_SERVICE_UUID]
+                };
+
+                try {
+                    controller.device = await navigator.bluetooth.requestDevice({
+                        filters: [
+                            { services: [LWP3_SERVICE_UUID] },
+                            {
+                                manufacturerData: [{
+                                    companyIdentifier: 0x0397,
+                                    dataPrefix: new Uint8Array([0x42])
+                                }]
+                            }
+                        ],
+                        optionalServices: [LWP3_SERVICE_UUID]
+                    });
+                } catch (e) {
+                    controller.device = await navigator.bluetooth.requestDevice(options);
+                }
+
+                console.log(`🎮 ${currentControllerSide} device selected:`, controller.device.name);
+
+                controller.server = await controller.device.gatt.connect();
+                console.log('✅ GATT server connected');
+
+                const service = await controller.server.getPrimaryService(LWP3_SERVICE_UUID);
+                controller.characteristic = await service.getCharacteristic(LWP3_CHAR_UUID);
+                console.log('✅ LWP3 characteristic obtained');
+
+                await controller.characteristic.startNotifications();
+                
+                // Her controller için ayrı handler
+                if (currentControllerSide === 'left') {
+                    controller.characteristic.addEventListener('characteristicvaluechanged', handleLeftControllerData);
+                } else {
+                    controller.characteristic.addEventListener('characteristicvaluechanged', handleRightControllerData);
+                }
+                console.log('✅ Notifications started');
+
+                // Subscribe to button ports
+                try {
+                    const subscribeLeft = new Uint8Array([0x0A, 0x00, 0x41, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01]);
+                    await controller.characteristic.writeValue(subscribeLeft);
+                    console.log('📡 Subscribed to Left button (Port 0)');
+
+                    const subscribeRight = new Uint8Array([0x0A, 0x00, 0x41, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01]);
+                    await controller.characteristic.writeValue(subscribeRight);
+                    console.log('📡 Subscribed to Right button (Port 1)');
+                } catch (subError) {
+                    console.warn('⚠️ Could not subscribe to button ports:', subError);
+                }
+
+                // Handle disconnect
+                const side = currentControllerSide;
+                controller.device.addEventListener('gattserverdisconnected', () => {
+                    onControllerDisconnected(side);
+                });
+
+                controller.connected = true;
+                updateControllerModalUI(controller);
+                updateControllerButtonUI();
+                controllerModal.classList.add('hidden');
+
+            } catch (error) {
+                console.error('❌ Bluetooth connection error:', error);
+                if (error.name !== 'NotFoundError') {
+                    alert('Bağlantı hatası: ' + error.message);
+                }
+            }
+        }
+
+        function handleLeftControllerData(event) {
+            const value = event.target.value;
+            const bytes = new Uint8Array(value.buffer);
+
+            console.log('🎮 LEFT Data:', Array.from(bytes).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+            if (bytes.length >= 5 && bytes[2] === 0x45) {
+                const portId = bytes[3];
+                const buttonValue = bytes[4];
+
+                // Sol controller: Plus = W (yukarı), Minus = S (aşağı)
+                // buttonValue: 1 = Plus pressed, 255 = Minus pressed, 0 = Released
+                if (buttonValue === 1) {
+                    // PLUS pressed -> W tuşu (yukarı)
+                    console.log('🎮 LEFT PLUS -> W (Up) PRESSED');
+                    keys['w'] = true;
+                    keys['s'] = false;
+                } else if (buttonValue === 255) {
+                    // MINUS pressed -> S tuşu (aşağı)
+                    console.log('🎮 LEFT MINUS -> S (Down) PRESSED');
+                    keys['s'] = true;
+                    keys['w'] = false;
+                } else if (buttonValue === 0) {
+                    // Button released
+                    console.log('🎮 LEFT BUTTON RELEASED');
+                    keys['w'] = false;
+                    keys['s'] = false;
+                }
+            }
+        }
+
+        function handleRightControllerData(event) {
+            const value = event.target.value;
+            const bytes = new Uint8Array(value.buffer);
+
+            console.log('🎮 RIGHT Data:', Array.from(bytes).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '));
+
+            if (bytes.length >= 5 && bytes[2] === 0x45) {
+                const portId = bytes[3];
+                const buttonValue = bytes[4];
+
+                // Sağ controller: Plus = ArrowUp (yukarı), Minus = ArrowDown (aşağı)
+                // buttonValue: 1 = Plus pressed, 255 = Minus pressed, 0 = Released
+                if (buttonValue === 1) {
+                    // PLUS pressed -> Yukarı ok tuşu
+                    console.log('🎮 RIGHT PLUS -> ArrowUp PRESSED');
+                    keys['ArrowUp'] = true;
+                    keys['ArrowDown'] = false;
+                } else if (buttonValue === 255) {
+                    // MINUS pressed -> Aşağı ok tuşu
+                    console.log('🎮 RIGHT MINUS -> ArrowDown PRESSED');
+                    keys['ArrowDown'] = true;
+                    keys['ArrowUp'] = false;
+                } else if (buttonValue === 0) {
+                    // Button released
+                    console.log('🎮 RIGHT BUTTON RELEASED');
+                    keys['ArrowUp'] = false;
+                    keys['ArrowDown'] = false;
+                }
+            }
+        }
+
+        function onControllerDisconnected(side) {
+            console.log(`🎮 ${side} controller disconnected`);
+            const controller = side === 'left' ? leftController : rightController;
+            controller.connected = false;
+            controller.device = null;
+            controller.server = null;
+            controller.characteristic = null;
+            updateControllerButtonUI();
+        }
+
+        async function disconnectController() {
+            const controller = currentControllerSide === 'left' ? leftController : rightController;
+            
+            if (controller.device && controller.device.gatt.connected) {
+                controller.device.gatt.disconnect();
+            }
+            controller.connected = false;
+            controller.device = null;
+            controller.server = null;
+            controller.characteristic = null;
+            updateControllerModalUI(controller);
+            updateControllerButtonUI();
+            controllerModal.classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
