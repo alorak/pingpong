@@ -1522,8 +1522,11 @@
         // Oyun sabitleri (yüzde bazlı)
         const PADDLE_HEIGHT = 20; // %
         const PADDLE_WIDTH = 2.5; // %
-        let BALL_SIZE = 3; // %
-        const PADDLE_SPEED = 2; // % per frame
+        let BALL_SIZE = 3; // game-area width %
+        const PADDLE_SPEED = 2; // % per 60 Hz frame (deltaTime ile ölçeklenir)
+        const TARGET_FRAME_MS = 1000 / 60;
+        const MAX_FRAME_MS = 50; // Sekme değişimi / frame drop sonrası büyük sıçramaları engelle
+        const MAX_BOUNCE_ANGLE = 55 * Math.PI / 180;
         let WINNING_SCORE = 5;
         let selectedWinScore = 5;
         let soundEnabled = true;
@@ -1535,8 +1538,9 @@
         let currentAnimalPlayer = 1;
         let player1 = { y: 50 - PADDLE_HEIGHT / 2, score: 0, animal: '🐱' };
         let player2 = { y: 50 - PADDLE_HEIGHT / 2, score: 0, animal: '🐶' };
-        let ballState = { x: 50, y: 50, vx: 0.5, vy: 0.3 };
+        let ballState = { x: 50, y: 50, vx: 0, vy: 0 };
         let keys = {};
+        let lastFrameTime = null;
 
         const pauseBtn = document.getElementById('pauseBtn');
 
@@ -1690,10 +1694,11 @@
                 mainMusic.pause();
             } else {
                 gameRunning = true;
+                lastFrameTime = null;
                 pauseBtn.textContent = '⏸️';
                 pauseBtn.classList.remove('paused');
                 if (musicStarted && soundEnabled) mainMusic.play().catch(e => {});
-                gameLoop();
+                requestAnimationFrame(gameLoop);
             }
         });
 
@@ -1711,6 +1716,9 @@
             gamePaused = false;
             pauseBtn.textContent = '⏸️';
             pauseBtn.classList.remove('paused');
+
+            // İlk servis de dahil olmak üzere her oyun seçili hız/boyut ayarlarıyla başlasın.
+            resetBall();
             
             let count = 3;
             countdown.classList.remove('hidden');
@@ -1728,7 +1736,8 @@
                     setTimeout(() => {
                         countdown.classList.add('hidden');
                         gameRunning = true;
-                        gameLoop();
+                        lastFrameTime = null;
+                        requestAnimationFrame(gameLoop);
                     }, 500);
                     clearInterval(countInterval);
                 }
@@ -1748,9 +1757,56 @@
         function resetBall() {
             ballState.x = 50;
             ballState.y = 50;
-            ballState.vx = (Math.random() > 0.5 ? 1 : -1) * baseBallSpeed;
-            ballState.vy = (Math.random() - 0.5) * baseBallSpeed * 1.2;
+
+            // Topun toplam başlangıç hızı her serviste tam olarak seçili temel hıza eşit olsun.
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            const launchAngle = (Math.random() - 0.5) * (Math.PI / 3); // -30° .. +30°
+            ballState.vx = direction * baseBallSpeed * Math.cos(launchAngle);
+            ballState.vy = baseBallSpeed * Math.sin(launchAngle);
+            lastFrameTime = null;
             updatePositions();
+        }
+
+        function getBallRadiusPercent() {
+            const rect = gameArea.getBoundingClientRect();
+            const radiusX = BALL_SIZE / 2;
+
+            // CSS'te topun width değeri saha genişliğinin yüzdesi ve aspect-ratio 1.
+            // Y eksenindeki fizik yarıçapını gerçek piksel oranından yüzdeye çevir.
+            const widthToHeightRatio = rect.height > 0 ? rect.width / rect.height : 16 / 9;
+            return {
+                x: radiusX,
+                y: radiusX * widthToHeightRatio
+            };
+        }
+
+        function getBallSpeedProfile() {
+            const sliderValue = parseFloat(speedSlider.value);
+
+            if (sliderValue <= 3) return { acceleration: 1.01, maxMultiplier: 1.25 };
+            if (sliderValue <= 4.5) return { acceleration: 1.012, maxMultiplier: 1.30 };
+            if (sliderValue <= 5.5) return { acceleration: 1.015, maxMultiplier: 1.40 };
+            if (sliderValue <= 7) return { acceleration: 1.018, maxMultiplier: 1.50 };
+            return { acceleration: 1.02, maxMultiplier: 1.50 };
+        }
+
+        function applyPaddleBounce(direction, hitY, paddleY) {
+            const profile = getBallSpeedProfile();
+            const currentSpeed = Math.max(Math.hypot(ballState.vx, ballState.vy), baseBallSpeed);
+            const nextSpeed = Math.min(
+                currentSpeed * profile.acceleration,
+                baseBallSpeed * profile.maxMultiplier
+            );
+
+            const paddleCenter = paddleY + PADDLE_HEIGHT / 2;
+            const normalizedHit = Math.max(
+                -1,
+                Math.min(1, (hitY - paddleCenter) / (PADDLE_HEIGHT / 2))
+            );
+            const bounceAngle = normalizedHit * MAX_BOUNCE_ANGLE;
+
+            ballState.vx = direction * nextSpeed * Math.cos(bounceAngle);
+            ballState.vy = nextSpeed * Math.sin(bounceAngle);
         }
 
         // Klavye kontrolleri
@@ -1836,70 +1892,123 @@
             }
         }
 
-        function gameLoop() {
-            if (!gameRunning) return;
-
-            // Oyuncu 1 hareketi (W/S)
-            if (keys['w'] && player1.y > 0) {
-                player1.y -= PADDLE_SPEED;
-            }
-            if (keys['s'] && player1.y < 100 - PADDLE_HEIGHT) {
-                player1.y += PADDLE_SPEED;
+        function gameLoop(timestamp) {
+            if (!gameRunning) {
+                lastFrameTime = null;
+                return;
             }
 
-            // Oyuncu 2 hareketi (Yukarı/Aşağı ok)
-            if (keys['ArrowUp'] && player2.y > 0) {
-                player2.y -= PADDLE_SPEED;
-            }
-            if (keys['ArrowDown'] && player2.y < 100 - PADDLE_HEIGHT) {
-                player2.y += PADDLE_SPEED;
+            if (lastFrameTime === null) {
+                lastFrameTime = timestamp;
             }
 
-            // Top hareketi
-            ballState.x += ballState.vx;
-            ballState.y += ballState.vy;
+            const deltaMs = Math.min(
+                MAX_FRAME_MS,
+                Math.max(0, timestamp - lastFrameTime)
+            );
+            lastFrameTime = timestamp;
+            const frameScale = deltaMs / TARGET_FRAME_MS;
 
-            // Üst/alt duvar çarpması
-            if (ballState.y <= BALL_SIZE / 2 || ballState.y >= 100 - BALL_SIZE / 2) {
-                ballState.vy *= -1;
-                ballState.y = Math.max(BALL_SIZE / 2, Math.min(100 - BALL_SIZE / 2, ballState.y));
+            // Oyuncu hareketleri frame-rate'den bağımsız olsun.
+            if (keys['w'] && !keys['s']) {
+                player1.y -= PADDLE_SPEED * frameScale;
+            } else if (keys['s'] && !keys['w']) {
+                player1.y += PADDLE_SPEED * frameScale;
+            }
+
+            if (keys['ArrowUp'] && !keys['ArrowDown']) {
+                player2.y -= PADDLE_SPEED * frameScale;
+            } else if (keys['ArrowDown'] && !keys['ArrowUp']) {
+                player2.y += PADDLE_SPEED * frameScale;
+            }
+
+            player1.y = Math.max(0, Math.min(100 - PADDLE_HEIGHT, player1.y));
+            player2.y = Math.max(0, Math.min(100 - PADDLE_HEIGHT, player2.y));
+
+            const radius = getBallRadiusPercent();
+            const previousX = ballState.x;
+            const previousY = ballState.y;
+            let nextX = previousX + ballState.vx * frameScale;
+            let nextY = previousY + ballState.vy * frameScale;
+
+            // Üst/alt duvar çarpması: gerçek görsel yarıçapı kullan.
+            if (nextY - radius.y <= 0) {
+                nextY = radius.y;
+                ballState.vy = Math.abs(ballState.vy);
+                playSound('wall');
+            } else if (nextY + radius.y >= 100) {
+                nextY = 100 - radius.y;
+                ballState.vy = -Math.abs(ballState.vy);
                 playSound('wall');
             }
 
-            // Sol raket çarpması
-            const leftPaddleRight = 2.5 + PADDLE_WIDTH;
-            if (ballState.x - BALL_SIZE / 2 <= leftPaddleRight &&
-                ballState.x - BALL_SIZE / 2 >= 2.5 &&
-                ballState.y >= player1.y &&
-                ballState.y <= player1.y + PADDLE_HEIGHT) {
-                ballState.vx = Math.abs(ballState.vx) * 1.03;
-                ballState.vy += (ballState.y - (player1.y + PADDLE_HEIGHT / 2)) * 0.05;
-                paddleLeft.classList.add('hit');
-                setTimeout(() => paddleLeft.classList.remove('hit'), 200);
-                playSound('paddle');
+            let paddleHit = false;
+
+            // Sol raket: swept collision ile bir frame'de raketin içinden atlamayı engelle.
+            if (ballState.vx < 0) {
+                const paddleFace = 2.5 + PADDLE_WIDTH;
+                const previousLeftEdge = previousX - radius.x;
+                const nextLeftEdge = nextX - radius.x;
+
+                if (previousLeftEdge >= paddleFace && nextLeftEdge <= paddleFace) {
+                    const travel = previousLeftEdge - nextLeftEdge;
+                    const hitT = travel > 0
+                        ? Math.max(0, Math.min(1, (previousLeftEdge - paddleFace) / travel))
+                        : 0;
+                    const hitY = previousY + (nextY - previousY) * hitT;
+                    const verticalOverlap =
+                        hitY + radius.y >= player1.y &&
+                        hitY - radius.y <= player1.y + PADDLE_HEIGHT;
+
+                    if (verticalOverlap) {
+                        ballState.x = paddleFace + radius.x;
+                        ballState.y = nextY;
+                        applyPaddleBounce(1, hitY, player1.y);
+                        paddleHit = true;
+                        paddleLeft.classList.add('hit');
+                        setTimeout(() => paddleLeft.classList.remove('hit'), 200);
+                        playSound('paddle');
+                    }
+                }
             }
 
-            // Sağ raket çarpması
-            const rightPaddleLeft = 100 - 2.5 - PADDLE_WIDTH;
-            if (ballState.x + BALL_SIZE / 2 >= rightPaddleLeft &&
-                ballState.x + BALL_SIZE / 2 <= 100 - 2.5 &&
-                ballState.y >= player2.y &&
-                ballState.y <= player2.y + PADDLE_HEIGHT) {
-                ballState.vx = -Math.abs(ballState.vx) * 1.03;
-                ballState.vy += (ballState.y - (player2.y + PADDLE_HEIGHT / 2)) * 0.05;
-                paddleRight.classList.add('hit');
-                setTimeout(() => paddleRight.classList.remove('hit'), 200);
-                playSound('paddle');
+            // Sağ raket: aynı swept collision yaklaşımı.
+            if (!paddleHit && ballState.vx > 0) {
+                const paddleFace = 100 - 2.5 - PADDLE_WIDTH;
+                const previousRightEdge = previousX + radius.x;
+                const nextRightEdge = nextX + radius.x;
+
+                if (previousRightEdge <= paddleFace && nextRightEdge >= paddleFace) {
+                    const travel = nextRightEdge - previousRightEdge;
+                    const hitT = travel > 0
+                        ? Math.max(0, Math.min(1, (paddleFace - previousRightEdge) / travel))
+                        : 0;
+                    const hitY = previousY + (nextY - previousY) * hitT;
+                    const verticalOverlap =
+                        hitY + radius.y >= player2.y &&
+                        hitY - radius.y <= player2.y + PADDLE_HEIGHT;
+
+                    if (verticalOverlap) {
+                        ballState.x = paddleFace - radius.x;
+                        ballState.y = nextY;
+                        applyPaddleBounce(-1, hitY, player2.y);
+                        paddleHit = true;
+                        paddleRight.classList.add('hit');
+                        setTimeout(() => paddleRight.classList.remove('hit'), 200);
+                        playSound('paddle');
+                    }
+                }
             }
 
-            // Hız limiti
-            const maxSpeed = baseBallSpeed * 2.5;
-            ballState.vx = Math.max(-maxSpeed, Math.min(maxSpeed, ballState.vx));
-            ballState.vy = Math.max(-maxSpeed * 0.8, Math.min(maxSpeed * 0.8, ballState.vy));
+            if (!paddleHit) {
+                ballState.x = nextX;
+                ballState.y = nextY;
+            }
 
-            // Gol kontrolü - Sol taraftan çıktı (Oyuncu 2 sayı aldı)
-            if (ballState.x < 0) {
-                gameRunning = false; // Oyunu durdur
+            // Gol kontrolü - top tamamen sahadan çıktıktan sonra sayı yaz.
+            if (ballState.x + radius.x < 0) {
+                gameRunning = false;
+                lastFrameTime = null;
                 player2.score++;
                 updateStars();
                 showScorePopup(75, player2.animal);
@@ -1907,19 +2016,19 @@
                 playSound('score');
                 
                 if (!checkWinner()) {
-                    // 1.5 saniye bekle, sonra yeni tur başlat
                     setTimeout(() => {
                         resetBall();
                         gameRunning = true;
-                        gameLoop();
+                        lastFrameTime = null;
+                        requestAnimationFrame(gameLoop);
                     }, 1500);
                 }
                 return;
             }
             
-            // Sağ taraftan çıktı (Oyuncu 1 sayı aldı)
-            if (ballState.x > 100) {
-                gameRunning = false; // Oyunu durdur
+            if (ballState.x - radius.x > 100) {
+                gameRunning = false;
+                lastFrameTime = null;
                 player1.score++;
                 updateStars();
                 showScorePopup(25, player1.animal);
@@ -1927,11 +2036,11 @@
                 playSound('score');
                 
                 if (!checkWinner()) {
-                    // 1.5 saniye bekle, sonra yeni tur başlat
                     setTimeout(() => {
                         resetBall();
                         gameRunning = true;
-                        gameLoop();
+                        lastFrameTime = null;
+                        requestAnimationFrame(gameLoop);
                     }, 1500);
                 }
                 return;
